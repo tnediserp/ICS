@@ -1,0 +1,290 @@
+#/* $begin ncopy-ys */
+##################################################################
+# ncopy.ys - Copy a src block of len words to dst.
+# Return the number of positive words (>0) contained in src.
+#
+# 岳镝 2100012961
+#
+# Describe how and why you modified the baseline code.
+# 1. 采用9*1循环展开。这样做是为了减少循环层数，从而减少循环变量的累加次数，而利用常数进行内存寻址
+# 2. 利用pipe-full.hcl中实现的加载转发，避免了特殊的load/use产生不必要的气泡，同时还减少了代码量
+# 3. 利用二分法处理不足9的部分（BinarySearch)，确定余数。这样，一旦确定出余数，就能从某一个位置开始，顺序执行下去
+#	 直到结束，而不用涉及%rdx的增减和逐次比较。
+# 4. 在细节上，调整一些代码语句执行顺序。这一点在Loop中极其重要，因为一旦能够减少一条指令很可能就实现了几倍的优化。
+# 	 例如，利用跳转语句always taken的特性，把%rdx -9的指令放到循环尾部，这样既提高了预测正确性，又能实现和后面
+#	 指令的衔接（而不需要加一条jmp)
+#
+##################################################################
+# Do not modify this portion
+# Function prologue.
+# %rdi = src, %rsi = dst, %rdx = len
+ncopy:
+
+##################################################################
+# You can modify this portion
+	# Loop header
+	iaddq	$-9, %rdx
+	jl	BinarySearch
+Loop:
+Npos0:
+	mrmovq (%rdi), %r8
+	rmmovq %r8, (%rsi)		# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos1
+	iaddq	$1, %rax
+Npos1:
+	mrmovq 8(%rdi), %r8
+	rmmovq %r8, 8(%rsi)		# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos2
+	iaddq	$1, %rax
+Npos2:
+	mrmovq 16(%rdi), %r8
+	rmmovq %r8, 16(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos3
+	iaddq	$1, %rax
+Npos3:
+	mrmovq 24(%rdi), %r8
+	rmmovq %r8, 24(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos4
+	iaddq	$1, %rax
+Npos4:
+	mrmovq 32(%rdi), %r8
+	rmmovq %r8, 32(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos5
+	iaddq	$1, %rax
+Npos5:
+	mrmovq 40(%rdi), %r8
+	rmmovq %r8, 40(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos6
+	iaddq	$1, %rax
+Npos6:
+	mrmovq 48(%rdi), %r8
+	rmmovq %r8, 48(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos7
+	iaddq	$1, %rax
+Npos7:
+	mrmovq 56(%rdi), %r8
+	rmmovq %r8, 56(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos8
+	iaddq	$1, %rax
+Npos8:
+	mrmovq 64(%rdi), %r8
+	rmmovq %r8, 64(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Npos9
+	iaddq	$1, %rax
+Npos9:
+	iaddq $72, %rdi
+	iaddq $72, %rsi
+	iaddq $-9, %rdx
+	jge Loop
+
+BinarySearch:
+	iaddq	$5, %rdx
+	jg	Bpos6
+	jl	Bpos1
+	jmp	Rpos4
+Bpos1:
+	iaddq	$3, %rdx
+	jg	Bpos2
+Bpos0:
+	je	Rpos1
+	jmp Done
+Bpos2:
+	iaddq	$-1, %rdx
+	je	Rpos2
+	jmp	Rpos3
+Bpos6:
+	iaddq	$-2, %rdx
+	jg	Bpos7
+Bpos5:
+	je	Rpos6
+	jmp	Rpos5
+Bpos7:
+	iaddq	$-1, %rdx
+	je	Rpos7
+Rpos8:
+	mrmovq 56(%rdi), %r8
+	rmmovq %r8, 56(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Rpos7
+	iaddq	$1, %rax
+Rpos7:
+	mrmovq 48(%rdi), %r8
+	rmmovq %r8, 48(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Rpos6
+	iaddq	$1, %rax
+Rpos6:
+	mrmovq 40(%rdi), %r8
+	rmmovq %r8, 40(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Rpos5
+	iaddq	$1, %rax
+Rpos5:
+	mrmovq 32(%rdi), %r8
+	rmmovq %r8, 32(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Rpos4
+	iaddq	$1, %rax
+Rpos4:
+	mrmovq 24(%rdi), %r8
+	rmmovq %r8, 24(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle	Rpos3
+	iaddq	$1, %rax
+Rpos3:
+	mrmovq 16(%rdi), %r8
+	rmmovq %r8, 16(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Rpos2
+	iaddq	$1, %rax
+Rpos2:
+	mrmovq 8(%rdi), %r8
+	rmmovq %r8, 8(%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Rpos1
+	iaddq	$1, %rax
+Rpos1:
+	mrmovq (%rdi), %r8
+	rmmovq %r8, (%rsi)	# ...and store it to dst
+	andq %r8, %r8		# val <= 0?
+	jle Done
+	iaddq	$1, %rax
+
+	
+
+##################################################################
+# Do not modify the following section of code
+# Function epilogue.
+Done:
+	ret
+##################################################################
+# Keep the following label at the end of your function
+End:
+#/* $end ncopy-ys */
+
+
+
+
+#/* $begin ncopy-ys */
+##################################################################
+# ncopy.ys - Copy a src block of len words to dst.
+# Return the number of positive words (>0) contained in src.
+#
+# Include your name and ID here.
+#
+# Describe how and why you modified the baseline code.
+#
+##################################################################
+# Do not modify this portion
+# Function prologue.
+# %rdi = src, %rsi = dst, %rdx = len
+ncopy:
+
+##################################################################
+# You can modify this portion
+	# Loop header
+	xorq %rax,%rax		# count = 0;
+
+Loop:
+	iaddq	$-8, %rdx
+	jge	Mpos0
+	jmp Endpos
+Mpos0:
+	mrmovq (%rdi), %rcx
+	rmmovq %rcx, (%rsi)		# ...and store it to dst
+	iaddq	$1, %rax
+	mrmovq 8(%rdi), %r8
+	rmmovq %r8, 8(%rsi)		# ...and store it to dst
+	iaddq	$1, %rax
+	mrmovq 16(%rdi), %r9
+	rmmovq %r9, 16(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+	mrmovq 24(%rdi), %r10
+	rmmovq %r10, 24(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+	mrmovq 32(%rdi), %r11
+	rmmovq %r11, 32(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+	mrmovq 40(%rdi), %r12
+	rmmovq %r12, 40(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+	mrmovq 48(%rdi), %r13
+	rmmovq %r13, 48(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+	mrmovq 56(%rdi), %r14
+	rmmovq %r14, 56(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+Npos8:
+	iaddq $64, %rdi
+	iaddq $64, %rsi
+	jmp	Loop
+
+Endpos:
+	rrmovq 	%rax, %rbp #######
+	iaddq $7, %rdx
+	jge	BinarySearch
+	jmp Done
+BinarySearch:
+	iaddq	$-3, %rdx
+	jg	Bpos5
+	jl	Bpos1
+	jmp	Rpos3
+Bpos1:
+	iaddq	$2, %rdx
+	jg	Rpos2
+	jl	Rpos0
+	jmp	Rpos1
+Bpos5:
+	iaddq	$-2, %rdx
+	jl	Rpos4
+	je	Rpos5
+Rpos6:
+	mrmovq 48(%rdi), %r13
+	rmmovq %r13, 48(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+Rpos5:
+	mrmovq 40(%rdi), %r12
+	rmmovq %r12, 40(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+Rpos4:
+	mrmovq 32(%rdi), %r11
+	rmmovq %r11, 32(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+Rpos3:
+	mrmovq 24(%rdi), %r10
+	rmmovq %r10, 24(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+Rpos2:
+	mrmovq 16(%rdi), %r9
+	rmmovq %r9, 16(%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+Rpos1:
+	mrmovq 8(%rdi), %r8
+	rmmovq %r8, 8(%rsi)		# ...and store it to dst
+	iaddq	$1, %rax
+Rpos0:
+	mrmovq (%rdi), %rcx
+	rmmovq %rcx, (%rsi)	# ...and store it to dst
+	iaddq	$1, %rax
+	
+	rrmovq	%rax, %rbp
+	
+
+##################################################################
+# Do not modify the following section of code
+# Function epilogue.
+Done:
+	ret
+##################################################################
+# Keep the following label at the end of your function
+End:
+#/* $end ncopy-ys */
